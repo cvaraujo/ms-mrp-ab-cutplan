@@ -5,12 +5,19 @@
 #include <chrono>
 #include "../headers/Model.h"
 
+using namespace lemon;
+
 class cyclecallback: public GRBCallback {
 public:
   double lastiter, lastnode;
   int numvars;
   vector<vector<GRBVar>> y;
-  
+  typedef ListGraph G;
+  typedef G::Edge Edge;
+  typedef G::EdgeIt EdgeIt;
+  typedef G::Node Node;
+  typedef G::EdgeMap<int> LengthMap;
+
   Graph *graph;
 
   cyclecallback(Graph *xgraph, int xnumvars, vector<vector<GRBVar>> xy){
@@ -24,19 +31,39 @@ protected:
   void callback() {
     try {
       if (where == GRB_CB_MIPNODE) {
-	cout << "*** New node ***" << endl;
-	double nodecnt = getDoubleInfo(GRB_CB_MIP_NODCNT);
-	cout << "Total of nodes: " << nodecnt << endl;
-	
-	int n = graph->getN();
-        	
-	for (int i = 0; i < graph->getN(); i++) {
-	  for (auto arc : graph->arcs[i]) {
-	    cout << "y[" << i << "][" << arc->getD() << "]" << " = " << getNodeRel(y[i][arc->getD()]) << endl;
-	  }
-	}
-	cout << "Acho que deu Certo" << endl;
-	getchar();
+        cout << "*** New node ***" << endl;
+        double nodecnt = getDoubleInfo(GRB_CB_MIP_NODCNT);
+        cout << "Total of nodes: " << nodecnt << endl;
+        int n = graph->getN();
+
+        G g;
+        vector<Edge> setEdges;
+        vector<Node> setNodes = vector<Node>(n);
+
+        for (int i = 0; i < n; i++) {setNodes[i] = g.addNode();}
+        ListGraph::EdgeMap<int> map(g);
+       
+        LengthMap length(g);
+
+        for (int i = 0; i < graph->getN(); i++) {
+          for (auto arc : graph->arcs[i]) {
+            if (getNodeRel(y[i][arc->getD()]) > 0) {
+              setEdges.push_back(g.addEdge(setNodes[i], setNodes[arc->getD()]));
+              length[setEdges[setEdges.size()-1]] = int(getNodeRel(y[i][arc->getD()]));
+              cout << "y[" << i << "][" << arc->getD() << "]" << " = " << getNodeRel(y[i][arc->getD()]) << endl;
+            }
+          }
+        }
+        cout << "Acho que deu Certo" << endl;
+        //for (EdgeIt j(g); j != INVALID; ++j) {
+          //cout << "Length: " << g.id(g.source(j)) << "," << g.id(g.target(j)) << " = " << length[j] << endl;
+          //}
+        GomoryHu<G, LengthMap> gh(g, length);
+        gh.run();
+        cout << "Root: " << graph->getRoot() << endl;
+        for (auto k : graph->DuS)
+          cout << k << " - " << gh.minCutValue(setNodes[graph->getRoot()], setNodes[k]) << endl;
+        getchar();
       }
     } catch(GRBException e) {
       cout << "Error number: " << e.getErrorCode() << endl;
@@ -69,9 +96,9 @@ void Model::initialize() {
     char name[30];
     for (o = 0; o < n; o++) {
       for (auto *arc : graph->arcs[o]) {
-	d = arc->getD();
-	sprintf(name, "y_%d_%d", o, d);
-	y[o][d] = model.addVar(0.0, 1.0, 0, GRB_BINARY, name);
+        d = arc->getD();
+        sprintf(name, "y_%d_%d", o, d);
+        y[o][d] = model.addVar(0.0, 1.0, 0, GRB_BINARY, name);
       }
     }
     
@@ -122,11 +149,11 @@ void Model::allNodesAttended() {
     } else {
       GRBLinExpr inArcs;
       for (int i = 0; i < graph->getN(); i++) {
-	for (auto *arc : graph->arcs[i]) {
-	  if (arc->getD() == j) {
-	    inArcs += y[i][j];
-	  }
-	}
+        for (auto *arc : graph->arcs[i]) {
+          if (arc->getD() == j) {
+            inArcs += y[i][j];
+          }
+        }
       }
       model.addConstr(inArcs == 1, "in_arcs_" + to_string(j));   
     }
@@ -153,17 +180,17 @@ void Model::allNodesAttended() {
 void Model::calcLambdaXi() {
   int j, bigM;
   for (int i = 0; i < graph->getN(); i++) {
-      for (auto *arc : graph->arcs[i]) {
-	j = arc->getD();
-	bigM = graph->getBigMDelay();
+    for (auto *arc : graph->arcs[i]) {
+      j = arc->getD();
+      bigM = graph->getBigMDelay();
             
-	model.addConstr(lambda[j] >= (lambda[i] + (arc->getDelay() * y[i][j])) - (bigM * (1 - y[i][j])), "lambda_" + to_string(i) + "_" + to_string(j));
-	model.addConstr(lambda[j] <= (lambda[i] + arc->getDelay()) + (bigM * (1 - y[i][j])), "lambda_minus_" + to_string(i) + "_" + to_string(j));
+      model.addConstr(lambda[j] >= (lambda[i] + (arc->getDelay() * y[i][j])) - (bigM * (1 - y[i][j])), "lambda_" + to_string(i) + "_" + to_string(j));
+      model.addConstr(lambda[j] <= (lambda[i] + arc->getDelay()) + (bigM * (1 - y[i][j])), "lambda_minus_" + to_string(i) + "_" + to_string(j));
         
-	bigM = graph->getBigMJitter();
-	model.addConstr(xi[j] >= xi[i] + (arc->getJitter() * y[i][j]) - (bigM * (1 - y[i][j])), "xi_" + to_string(i) + "_" + to_string(j));
-	model.addConstr(xi[j] <= (xi[i] + arc->getJitter()) + (bigM * (1 - y[i][j])), "xi_minus_" + to_string(i) + "_" + to_string(j));
-      }
+      bigM = graph->getBigMJitter();
+      model.addConstr(xi[j] >= xi[i] + (arc->getJitter() * y[i][j]) - (bigM * (1 - y[i][j])), "xi_" + to_string(i) + "_" + to_string(j));
+      model.addConstr(xi[j] <= (xi[i] + arc->getJitter()) + (bigM * (1 - y[i][j])), "xi_minus_" + to_string(i) + "_" + to_string(j));
+    }
   }
   model.update();
   cout << "Computing lambda and xi values" << endl;
@@ -185,10 +212,10 @@ void Model::limVariation() {
   for (auto k : graph->terminals) {
     for (auto l : graph->terminals) {
       if (k != l) {
-	bigMK = graph->getBigMDelay() - min(graph->getShpTerminal(l) + graph->getParamVariation(), graph->getParamDelay());
-	bigML = graph->getParamDelay() - graph->getParamVariation() - graph->getShpTerminal(l);
+        bigMK = graph->getBigMDelay() - min(graph->getShpTerminal(l) + graph->getParamVariation(), graph->getParamDelay());
+        bigML = graph->getParamDelay() - graph->getParamVariation() - graph->getShpTerminal(l);
           
-	model.addConstr(lambda[k] - lambda[l] <= graph->getParamVariation() + (bigMK * z[k]) + (bigML * z[l]), "limit_of_variation_between_pairs_" + to_string(k) + "_" + to_string(l));
+        model.addConstr(lambda[k] - lambda[l] <= graph->getParamVariation() + (bigMK * z[k]) + (bigML * z[l]), "limit_of_variation_between_pairs_" + to_string(k) + "_" + to_string(l));
       }
     }
   }
@@ -229,11 +256,11 @@ void Model::writeSolution(string instance, int preprocessingTime) {
     output << "----- Solution -----" << endl;
     for (int i = 0; i < graph->getN(); i++) {
       if (!graph->removed[i])
-	for (auto *arc : graph->arcs[i]) {
-	  if (y[i][arc->getD()].get(GRB_DoubleAttr_X) > 0.1) {
-	    output << i << " - " << arc->getD() << endl;
-	  }
-	}
+        for (auto *arc : graph->arcs[i]) {
+          if (y[i][arc->getD()].get(GRB_DoubleAttr_X) > 0.1) {
+            output << i << " - " << arc->getD() << endl;
+          }
+        }
     }
     output << graph->getParamDelay() << ", " << graph->getParamJitter() << ", " << graph->getParamVariation() << endl;
     for (auto i : graph->terminals)

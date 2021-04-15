@@ -17,6 +17,8 @@
 #include "boost/graph/dijkstra_shortest_paths.hpp"
 #include "boost/config.hpp"
 #include "boost/graph/r_c_shortest_paths.hpp"
+#include <lemon/gomory_hu.h>
+#include <lemon/list_graph.h>
 
 using namespace std;
 using namespace boost;
