@@ -30,40 +30,75 @@ public:
 protected:
   void callback() {
     try {
+      // if (where == GRB_CB_MIP) {
+      //   double nodecnt = getDoubleInfo(GRB_CB_MIP_NODCNT);
+      //   double objbst = getDoubleInfo(GRB_CB_MIP_OBJBST);
+      //   double objbnd = getDoubleInfo(GRB_CB_MIP_OBJBND);
+      //   int solcnt = getIntInfo(GRB_CB_MIP_SOLCNT);
+
+      //   if (fabs(objbst - objbnd) < 0.1 * (1.0 + fabs(objbst))) {
+      //     cout << "Stop early - 10% gap achieved" << endl;
+      //     abort();
+      //   }
+      //   if (nodecnt >= 10000 && solcnt) {
+      //     cout << "Stop early - 10000 nodes explored" << endl;
+      //     abort();
+      //   }
+
       if (where == GRB_CB_MIPNODE) {
-        cout << "*** New node ***" << endl;
+        //        cout << "*** New node ***" << endl;
         double nodecnt = getDoubleInfo(GRB_CB_MIP_NODCNT);
-        cout << "Total of nodes: " << nodecnt << endl;
-        int n = graph->getN();
+        int mipStatus = getIntInfo(GRB_CB_MIPNODE_STATUS);
+        if (mipStatus == GRB_OPTIMAL) {
+          //cout << "Total of nodes: " << nodecnt << endl;
+          int n = graph->getN();
 
-        G g;
-        vector<Edge> setEdges;
-        vector<Node> setNodes = vector<Node>(n);
+          G g;
+          vector<Edge> setEdges;
+          vector<Node> setNodes = vector<Node>(n);
 
-        for (int i = 0; i < n; i++) {setNodes[i] = g.addNode();}
-        ListGraph::EdgeMap<int> map(g);
+          for (int i = 0; i < n; i++) {setNodes[i] = g.addNode();}
+          ListGraph::EdgeMap<int> map(g);
        
-        LengthMap length(g);
+          LengthMap length(g);
 
-        for (int i = 0; i < graph->getN(); i++) {
-          for (auto arc : graph->arcs[i]) {
-            if (getNodeRel(y[i][arc->getD()]) > 0) {
-              setEdges.push_back(g.addEdge(setNodes[i], setNodes[arc->getD()]));
-              length[setEdges[setEdges.size()-1]] = int(getNodeRel(y[i][arc->getD()]));
-              cout << "y[" << i << "][" << arc->getD() << "]" << " = " << getNodeRel(y[i][arc->getD()]) << endl;
+          for (int i = 0; i < graph->getN(); i++) {
+            for (auto arc : graph->arcs[i]) {
+              if (getNodeRel(y[i][arc->getD()]) > 0) {
+                setEdges.push_back(g.addEdge(setNodes[i], setNodes[arc->getD()]));
+                length[setEdges[setEdges.size()-1]] = int(getNodeRel(y[i][arc->getD()])*10);
+                //              cout << "y[" << i << "][" << arc->getD() << "]" << " = " << getNodeRel(y[i][arc->getD()]) << endl;
+              }
             }
           }
-        }
-        cout << "Acho que deu Certo" << endl;
-        //for (EdgeIt j(g); j != INVALID; ++j) {
+          //        cout << "Acho que deu Certo" << endl;
+          //for (EdgeIt j(g); j != INVALID; ++j) {
           //cout << "Length: " << g.id(g.source(j)) << "," << g.id(g.target(j)) << " = " << length[j] << endl;
           //}
-        GomoryHu<G, LengthMap> gh(g, length);
-        gh.run();
-        cout << "Root: " << graph->getRoot() << endl;
-        for (auto k : graph->DuS)
-          cout << k << " - " << gh.minCutValue(setNodes[graph->getRoot()], setNodes[k]) << endl;
-        getchar();
+          GomoryHu<G, LengthMap> gh(g, length);
+          gh.run(); 
+          //cout << "Root: " << graph->getRoot() << endl;
+
+          double cutValue;
+          for (auto k : graph->DuS){
+            cutValue = double(gh.minCutValue(setNodes[graph->getRoot()], setNodes[k]))/10;
+            //   cout << k << " - " << cutValue << endl;
+            if (cutValue < 1) {
+              GRBLinExpr expr = y[0][k];
+              for (int i = 0; i < n; i++) {
+                for (auto *arc : graph->arcs[i]) {
+                  if (arc->getD() == k) {
+                    expr += y[i][k];
+                  }
+                }
+              }
+              addCut(expr >= 1);
+            }
+          }
+          setEdges.clear();
+          setNodes.clear();
+          //getchar();
+        }
       }
     } catch(GRBException e) {
       cout << "Error number: " << e.getErrorCode() << endl;
@@ -158,21 +193,6 @@ void Model::allNodesAttended() {
       model.addConstr(inArcs == 1, "in_arcs_" + to_string(j));   
     }
   }
-  //     for (int j = 0; i < graph->getN(); j++) {
-  //         if (graph->removed[j]) {
-  //             continue;
-  //             cout << "Aqui 1" << endl;
-  //             
-  //             cout << "Aqui 2" << endl;
-  //         } else if (j != graph->getRoot()) {
-  //             GRBLinExpr inArcs;
-  //             for (auto *arc : graph->arcs[j]) {
-  //                 inArcs += y[arc->getD()][j];
-  //             }
-  //             inArcs += y[0][j];
-  //             model.addConstr(inArcs == 1, "in_arcs_" + to_string(j));
-  //         }
-  //     }
   model.update();
   cout << "All nodes are inserted" << endl;
 }
@@ -254,17 +274,17 @@ void Model::writeSolution(string instance, int preprocessingTime) {
     output << "Runtime: " << model.get(GRB_DoubleAttr_Runtime) << endl;
 
     output << "----- Solution -----" << endl;
-    for (int i = 0; i < graph->getN(); i++) {
-      if (!graph->removed[i])
-        for (auto *arc : graph->arcs[i]) {
-          if (y[i][arc->getD()].get(GRB_DoubleAttr_X) > 0.1) {
-            output << i << " - " << arc->getD() << endl;
-          }
-        }
-    }
-    output << graph->getParamDelay() << ", " << graph->getParamJitter() << ", " << graph->getParamVariation() << endl;
-    for (auto i : graph->terminals)
-      output << i << " = " << lambda[i].get(GRB_DoubleAttr_X) << ", " << xi[i].get(GRB_DoubleAttr_X)<< endl;
+    // for (int i = 0; i < graph->getN(); i++) {
+    //   if (!graph->removed[i])
+    //     for (auto *arc : graph->arcs[i]) {
+    //       if (y[i][arc->getD()].get(GRB_DoubleAttr_X) > 0.1) {
+    //         output << i << " - " << arc->getD() << endl;
+    //       }
+    //     }
+    // }
+    // output << graph->getParamDelay() << ", " << graph->getParamJitter() << ", " << graph->getParamVariation() << endl;
+    // for (auto i : graph->terminals)
+    //   output << i << " = " << lambda[i].get(GRB_DoubleAttr_X) << ", " << xi[i].get(GRB_DoubleAttr_X)<< endl;
     output.close();
   } catch (GRBException &ex) {
     cout << ex.getMessage() << endl;
