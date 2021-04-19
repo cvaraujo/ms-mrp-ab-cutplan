@@ -557,9 +557,9 @@ void Graph::finishPreprocessing(string outputName, bool mve, bool sae) {
         }
     }
 
-    bigMDelay = 0, bigMJitter = 0;
-    for (int i = 0; i < n - (cntRemAll+2); i++)
-      bigMDelay += delayVector[i], bigMJitter += jitterVector[i];
+    bigMDelay = paramDelay+1, bigMJitter = paramJitter+1;
+    // for (int i = 0; i < n - (cntRemAll+2); i++)
+    //   bigMDelay += delayVector[i], bigMJitter += jitterVector[i];
 
     output << "Terminals_rem: " << cntRemTerm << endl;
     output << "Nodes_rem: " << cntRemAll << endl;
