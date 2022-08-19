@@ -45,6 +45,8 @@ public:
 
   void solve(string timeLimit);
 
+  bool checkSolution();
+
   void writeSolution(string instance, int preprocessingTime);
 };
 

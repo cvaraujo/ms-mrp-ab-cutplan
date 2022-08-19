@@ -1,5 +1,6 @@
 //
-// Created by carlos on 06/03/19.
+// Created by Carlos on 06/03/19.
+// Updated by Carlos on 19/08/22.
 //
 
 #include <chrono>
@@ -17,7 +18,7 @@ public:
   typedef G::Edge Edge;
   typedef G::EdgeIt EdgeIt;
   typedef G::Node Node;
-  typedef G::EdgeMap<int> LengthMap;
+  typedef G::EdgeMap<double> LengthMap;
   typedef G::NodeMap<bool> BoolNodeMap;
 
   Graph *graph;
@@ -33,49 +34,38 @@ protected:
   void callback() {
     try {
       if (where == GRB_CB_MIPNODE) {
-        //        cout << "*** New node ***" << endl;
         double nodecnt = getDoubleInfo(GRB_CB_MIP_NODCNT);
         int mipStatus = getIntInfo(GRB_CB_MIPNODE_STATUS);
         lastnode++;
         if (mipStatus == GRB_OPTIMAL) {
-          //cout << "Total of nodes: " << nodecnt << endl;
-          int n = graph->getN();
-
+          int i, n = graph->getN();
+          double cutValue;
           G g;
           vector<Edge> setEdges;
           vector<Node> setNodes = vector<Node>(n);
 
           for (int i = 0; i < n; i++) {setNodes[i] = g.addNode();}
-          ListGraph::EdgeMap<int> map(g);
-       
+          LengthMap map(g);
           LengthMap length(g);
 
-          for (int i = 0; i < graph->getN(); i++) {
+          for (int i = 0; i < n; i++) {
             for (auto arc : graph->arcs[i]) {
               if (getNodeRel(y[i][arc->getD()]) > 0) {
                 setEdges.push_back(g.addEdge(setNodes[i], setNodes[arc->getD()]));
-                length[setEdges[setEdges.size()-1]] = int(getNodeRel(y[i][arc->getD()])*10);
-                //              cout << "y[" << i << "][" << arc->getD() << "]" << " = " << getNodeRel(y[i][arc->getD()]) << endl;
+                length[setEdges[setEdges.size()-1]] = getNodeRel(y[i][arc->getD()]);
               }
             }
           }
-          //        cout << "Acho que deu Certo" << endl;
-          //for (EdgeIt j(g); j != INVALID; ++j) {
-          //cout << "Length: " << g.id(g.source(j)) << "," << g.id(g.target(j)) << " = " << length[j] << endl;
-          //}
+
           GomoryHu<G, LengthMap> gh(g, length);
           gh.run();
-
           BoolNodeMap bm(g);
-          //cout << "Root: " << graph->getRoot() << endl;
-          int i;
-          double cutValue;
+
           for (auto k : graph->terminals){
             cutValue = gh.minCutMap(setNodes[graph->getRoot()], setNodes[k], bm);
-            if (cutValue < 10) {
-              // cout << "CutValue: " << cutValue << ", from " << graph->getRoot() << " to " << k << endl;
+            if (cutValue < 1) {
               GRBLinExpr expr;
-              for (i = 0; i < graph->getN(); i++) {
+              for (i = 0; i < n; i++) {
                 for (auto *arc : graph->arcs[i]) {
                   if (!bm[setNodes[arc->getD()]]) {
                     expr += y[i][arc->getD()];
@@ -83,12 +73,10 @@ protected:
                 }
               }
               addCut(expr >= 1);
-              // getchar();
             }
           }
           setEdges.clear();
           setNodes.clear();
-          
         }
       }
     } catch(GRBException e) {
@@ -98,7 +86,6 @@ protected:
       cout << "Error during callback" << endl;
     }
   }
-  
 };
 
 Model::Model(Graph *graph) {
@@ -113,12 +100,12 @@ void Model::initialize() {
 
     env.set("LogFile", "MS_mip.log");
     env.start();
-    
+
     y = vector<vector<GRBVar>>(n, vector<GRBVar>(n));
     z = vector<GRBVar>(n);
     lambda = vector<GRBVar>(n);
     xi = vector<GRBVar>(n);
-    
+
     char name[30];
     for (o = 0; o < n; o++) {
       for (auto *arc : graph->arcs[o]) {
@@ -127,19 +114,19 @@ void Model::initialize() {
         y[o][d] = model.addVar(0.0, 1.0, 0, GRB_BINARY, name);
       }
     }
-    
+
     for (auto i : graph->terminals) {
       sprintf(name, "z_%d", i);
       z[i] = model.addVar(0.0, 1.0, 0, GRB_BINARY, name);
     }
-    
+
     for (int i = 0; i < n; i++) {
       sprintf(name, "lambda_%d", i);
-      lambda[i] = model.addVar(0.0, GRB_INFINITY, 0.0, GRB_CONTINUOUS, name);
-      sprintf(name, "xi_%d", i);    
-      xi[i] = model.addVar(0.0, GRB_INFINITY, 0.0, GRB_CONTINUOUS, name);
+      lambda[i] = model.addVar(0.0, graph->getParamDelay()+1, 0.0, GRB_CONTINUOUS, name);
+      sprintf(name, "xi_%d", i);
+      xi[i] = model.addVar(0.0, graph->getParamJitter() + 1, 0.0, GRB_CONTINUOUS, name);
     }
-    
+
     model.update();
     cout << "Create variables" << endl;
   } catch (GRBException &ex) {
@@ -181,7 +168,7 @@ void Model::allNodesAttended() {
           }
         }
       }
-      model.addConstr(inArcs == 1, "in_arcs_" + to_string(j));   
+      model.addConstr(inArcs == 1, "in_arcs_" + to_string(j));
     }
   }
   model.update();
@@ -193,14 +180,13 @@ void Model::calcLambdaXi() {
   for (int i = 0; i < graph->getN(); i++) {
     for (auto *arc : graph->arcs[i]) {
       j = arc->getD();
-      bigM = graph->getBigMDelay();
-            
+      bigM = graph->getParamDelay() + 1;
       model.addConstr(lambda[j] >= (lambda[i] + (arc->getDelay() * y[i][j])) - (bigM * (1 - y[i][j])), "lambda_" + to_string(i) + "_" + to_string(j));
       model.addConstr(lambda[j] <= (lambda[i] + arc->getDelay()) + (bigM * (1 - y[i][j])), "lambda_minus_" + to_string(i) + "_" + to_string(j));
-        
-      bigM = graph->getBigMJitter();
+
+      bigM = graph->getParamJitter() + 1;
       model.addConstr(xi[j] >= xi[i] + (arc->getJitter() * y[i][j]) - (bigM * (1 - y[i][j])), "xi_" + to_string(i) + "_" + to_string(j));
-      model.addConstr(xi[j] <= (xi[i] + arc->getJitter()) + (bigM * (1 - y[i][j])), "xi_minus_" + to_string(i) + "_" + to_string(j));
+      // model.addConstr(xi[j] <= (xi[i] + arc->getJitter()) + (bigM * (1 - y[i][j])), "xi_minus_" + to_string(i) + "_" + to_string(j));
     }
   }
   model.update();
@@ -210,9 +196,8 @@ void Model::calcLambdaXi() {
 void Model::limDelayAndJitter() {
   for (auto k : graph->terminals) {
     model.addConstr(lambda[k] <= graph->getParamDelay() + (graph->getBigMDelay() - graph->getParamDelay()) * z[k], "delay_limit_" + to_string(k));
-        
     model.addConstr(xi[k] <= graph->getParamJitter() + (graph->getBigMJitter() - graph->getParamJitter()) * z[k], "jitter_limit_" + to_string(k));
-        
+
   }
   model.update();
   cout << "Delay and Jitter limits" << endl;
@@ -225,7 +210,6 @@ void Model::limVariation() {
       if (k != l) {
         bigMK = graph->getBigMDelay() - min(graph->getShpTerminal(l) + graph->getParamVariation(), graph->getParamDelay());
         bigML = graph->getParamDelay() - graph->getParamVariation() - graph->getShpTerminal(l);
-          
         model.addConstr(lambda[k] - lambda[l] <= graph->getParamVariation() + (bigMK * z[k]) + (bigML * z[l]), "limit_of_variation_between_pairs_" + to_string(k) + "_" + to_string(l));
       }
     }
@@ -237,7 +221,7 @@ void Model::limVariation() {
 void Model::solve(string timeLimit) {
   try {
     model.set("TimeLimit", timeLimit);
-    model.set(GRB_DoubleParam_Heuristics, 0.0);
+    // model.set(GRB_DoubleParam_Heuristics, 0.0);
     cyclecallback cb = cyclecallback(graph, 0, y);
     model.update();
     model.setCallback(&cb);
@@ -250,8 +234,43 @@ void Model::solve(string timeLimit) {
   }
 }
 
+bool Model::checkSolution() {
+  int i, n = graph->getN();
+  int root = graph->getRoot();
+  vector<int> pred = vector<int>(n);
+
+  // Get the tree
+  for(i = 0; i < n; i++)
+    for(auto *arc : graph->arcs[i])
+      if(y[i][arc->getD()].get(GRB_DoubleAttr_X) > 0.5)
+        pred[arc->getD()] = i;
+
+  // Check the path for each terminal
+  for(auto k : graph->terminals) {
+    double delay_path = 0, jitter_path = 0;
+    int act_node = k;
+
+    while (act_node != root) {
+      delay_path += graph->getDelay(pred[act_node], act_node);
+      jitter_path += graph->getJitter(pred[act_node], act_node);
+
+      act_node = pred[act_node];
+    }
+
+    if((delay_path > graph->getParamDelay() || jitter_path > graph->getParamJitter()) && z[k].get(GRB_DoubleAttr_X) <= 0) {
+      cout << "ERROR" << endl;
+      return false;
+    }
+  }
+
+  return true;
+}
+
 void Model::writeSolution(string instance, int preprocessingTime) {
   try {
+    if(!checkSolution()) {
+      return;
+    }
     ofstream output;
     output.open(instance, ofstream::app);
     output << "Prep. Time: " << preprocessingTime << endl;
@@ -259,8 +278,7 @@ void Model::writeSolution(string instance, int preprocessingTime) {
     output << "UB: " << ub << endl;
     output << "LB: " << lb << endl;
     if (ub != 0) output << "gap: " << (ub - lb) / ub << endl;
-    
-        
+
     output << "N. Nodes: " << model.get(GRB_DoubleAttr_NodeCount) << endl;
     output << "Runtime: " << model.get(GRB_DoubleAttr_Runtime) << endl;
 
