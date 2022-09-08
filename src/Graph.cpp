@@ -6,13 +6,16 @@
 
 // data structures for shortest path problem with resource constraint
 // ResourceContainer model
-struct spp_spp_res_cont_prep {
+struct spp_spp_res_cont_prep
+{
     spp_spp_res_cont_prep(int c = 0, int r = 0) : cost(c), res(r) {}
 
-    spp_spp_res_cont_prep &operator=(const spp_spp_res_cont_prep &other) {
-        if (this == &other) return *this;
+    spp_spp_res_cont_prep &operator=(const spp_spp_res_cont_prep &other)
+    {
+        if (this == &other)
+            return *this;
         this->~spp_spp_res_cont_prep();
-        new(this) spp_spp_res_cont_prep(other);
+        new (this) spp_spp_res_cont_prep(other);
         return *this;
     }
 
@@ -20,21 +23,27 @@ struct spp_spp_res_cont_prep {
     int res;
 };
 
-bool operator==(const spp_spp_res_cont_prep &res_cont_1, const spp_spp_res_cont_prep &res_cont_2) {
+bool operator==(const spp_spp_res_cont_prep &res_cont_1, const spp_spp_res_cont_prep &res_cont_2)
+{
     return (res_cont_1.cost == res_cont_2.cost && res_cont_1.res == res_cont_2.res);
 }
 
-bool operator<(const spp_spp_res_cont_prep &res_cont_1, const spp_spp_res_cont_prep &res_cont_2) {
-    if (res_cont_1.cost > res_cont_2.cost) return false;
-    if (res_cont_1.cost == res_cont_2.cost) return res_cont_1.res < res_cont_2.res;
+bool operator<(const spp_spp_res_cont_prep &res_cont_1, const spp_spp_res_cont_prep &res_cont_2)
+{
+    if (res_cont_1.cost > res_cont_2.cost)
+        return false;
+    if (res_cont_1.cost == res_cont_2.cost)
+        return res_cont_1.res < res_cont_2.res;
     return true;
 }
 
 // ResourceExtensionFunction model
-class ref_spprc_prep {
+class ref_spprc_prep
+{
 public:
     inline bool operator()(const SPPRCGraphPrep &g, spp_spp_res_cont_prep &new_cont, const spp_spp_res_cont_prep &old_cont,
-                           graph_traits<SPPRCGraphPrep>::edge_descriptor ed) const {
+                           graph_traits<SPPRCGraphPrep>::edge_descriptor ed) const
+    {
 
         const SPPRC_Graph_Arc_Prep &arc_prop = get(edge_bundle, g)[ed];
         const SPPRC_Graph_Vert_Prep &vert_prop = get(vertex_bundle, g)[target(ed, g)];
@@ -46,15 +55,18 @@ public:
 };
 
 // DominanceFunction model
-class dominance_spptw_prep {
+class dominance_spptw_prep
+{
 public:
-    inline bool operator()(const spp_spp_res_cont_prep &res_cont_1, const spp_spp_res_cont_prep &res_cont_2) const {
+    inline bool operator()(const spp_spp_res_cont_prep &res_cont_1, const spp_spp_res_cont_prep &res_cont_2) const
+    {
         return res_cont_1.cost <= res_cont_2.cost && res_cont_1.res <= res_cont_2.res;
     }
 };
 // end data structures for shortest path problem with time windows (spptw)
 
-Graph::Graph(string instance, string param, string outputName) {
+Graph::Graph(string instance, string param, string outputName)
+{
     int u, v;
     double delay, jitter, bandwidth, ldp, paramDelayToken, paramJitterToken, paramVariationToken, paramBandwidthToken;
     int delayInt, jitterInt;
@@ -66,23 +78,30 @@ Graph::Graph(string instance, string param, string outputName) {
 
     fileParam.open(param, fstream::in);
 
-    while (!fileParam.eof()) {
+    while (!fileParam.eof())
+    {
         fileParam >> token;
-        if (token == "Delay") {
+        if (token == "Delay")
+        {
             fileParam >> token;
-            if (token == "variation") {
+            if (token == "variation")
+            {
                 fileParam >> token >> paramVariationToken;
                 Graph::paramVariation = int(1e5 * paramVariationToken);
-            } else {
+            }
+            else
+            {
                 fileParam >> paramDelayToken;
                 Graph::paramDelay = int(1e5 * paramDelayToken);
             }
         }
-        if (token == "Jitter") {
+        if (token == "Jitter")
+        {
             fileParam >> token >> paramJitterToken;
             Graph::paramJitter = int(1e6 * paramJitterToken);
         }
-        if (token == "Bandwidth") {
+        if (token == "Bandwidth")
+        {
             fileParam >> token >> paramBandwidthToken;
             Graph::paramBandwidth = int(paramBandwidthToken);
         }
@@ -90,76 +109,87 @@ Graph::Graph(string instance, string param, string outputName) {
 
     fileGraph.open(instance, fstream::in);
 
-    while (!fileGraph.eof()) {
+    while (!fileGraph.eof())
+    {
         fileGraph >> token;
-        if (token == "Nodes") {
+        if (token == "Nodes")
+        {
             fileGraph >> n;
             output << "Nodes: " << ++n << "\n";
             preProcessing = BoostGraph(n);
             arcs = vector<vector<Arc *>>(n, vector<Arc *>());
-	    costs = vector<vector<pair<int, int>>>(n, vector<pair<int, int>>(n));
+            costs = vector<vector<pair<int, int>>>(n, vector<pair<int, int>>(n));
             removed = vector<bool>(n);
-            removedF = vector<vector<vector<bool >>>(n, vector<vector<bool >>(n, vector<bool>(n)));
+            removedF = vector<vector<vector<bool>>>(n, vector<vector<bool>>(n, vector<bool>(n)));
             removedY = vector<vector<bool>>(n, vector<bool>(n));
             noPath = vector<bool>(n);
         }
 
-        if (token == "Edges") {
+        if (token == "Edges")
+        {
             fileGraph >> m;
             output << "Arcs: " << m * 2 << "\n";
         }
 
-        if (token == "E") {
+        if (token == "E")
+        {
             fileGraph >> u >> v >> delay >> jitter >> bandwidth >> ldp;
-            if (bandwidth >= paramBandwidth) {
+            if (bandwidth >= paramBandwidth)
+            {
                 delayInt = int(1e5 * delay), jitterInt = int(1e6 * jitter);
                 Arc *arc = new Arc(u, v, delayInt, jitterInt, int(bandwidth), int(10 * ldp));
                 Arc *arcRev = new Arc(v, u, delayInt, jitterInt, int(bandwidth), int(10 * ldp));
                 delayVector.push_back(delayInt), jitterVector.push_back(jitterInt);
                 arcs[u].push_back(arc), arcs[v].push_back(arcRev);
-		costs[u][v] = costs[v][u] = make_pair(delayInt, jitterInt);
+                costs[u][v] = costs[v][u] = make_pair(delayInt, jitterInt);
                 add_edge(u, v, delayInt, preProcessing), add_edge(v, u, delayInt, preProcessing);
             }
         }
-        if (token == "Root") fileGraph >> root;
-        if (token == "T") fileGraph >> u, terminals.push_back(u), DuS.push_back(u);
+        if (token == "Root")
+            fileGraph >> root;
+        if (token == "T")
+            fileGraph >> u, terminals.push_back(u), DuS.push_back(u);
     }
 
     property_map<BoostGraph, edge_weight_t>::type weightMapDelay = get(edge_weight, preProcessing);
     predecessors = vector<VertexDescriptor>(n);
     distance = vector<int>(n);
 
-    dijkstra_shortest_paths(preProcessing, root, predecessor_map(
-            make_iterator_property_map(predecessors.begin(), get(vertex_index, preProcessing))).distance_map(
-            make_iterator_property_map(distance.begin(), get(vertex_index, preProcessing))));
+    dijkstra_shortest_paths(preProcessing, root, predecessor_map(make_iterator_property_map(predecessors.begin(), get(vertex_index, preProcessing))).distance_map(make_iterator_property_map(distance.begin(), get(vertex_index, preProcessing))));
 
     bool isTerminal;
-    for (int i = 1; i < n; ++i) {
+    for (int i = 1; i < n; ++i)
+    {
         if (distance[i] >= numeric_limits<int>::max())
-            removed[i] = true; 
+            removed[i] = true;
         isTerminal = false;
-        if (i != root) {
-            for (auto t : terminals) {
-                if (i == t) {
+        if (i != root)
+        {
+            for (auto t : terminals)
+            {
+                if (i == t)
+                {
                     isTerminal = true;
                     break;
                 }
             }
-            if (!isTerminal) nonTerminals.push_back(i), DuS.push_back(i);
+            if (!isTerminal)
+                nonTerminals.push_back(i), DuS.push_back(i);
         }
     }
 
-    sort(delayVector.begin(), delayVector.end(), greater<int>());
-    sort(jitterVector.begin(), jitterVector.end(), greater<int>());
+    // sort(delayVector.begin(), delayVector.end(), greater<int>());
+    // sort(jitterVector.begin(), jitterVector.end(), greater<int>());
 
-    for (int i = 0; i < n - 2; i++)
-        bigMDelay += delayVector[i], bigMJitter += jitterVector[i];
-
+    // for (int i = 0; i < n - 2; i++)
+    //     bigMDelay += delayVector[i], bigMJitter += jitterVector[i];
+    // bigMDelay = paramDelay + 1, bigMJitter = paramJitter + 1;
     // output.close();
     cout << "Load graph successfully" << endl;
 }
 
-void Graph::MVE(string outputName, string prepOutp) {
+void Graph::MVE(string outputName, string prepOutp)
+{
     // Moterated Vertex Elimination using delay as cost and jitter resource
     int countEdges = 0, j;
     SPPRCGraphPrep graphJitterMae;
@@ -175,55 +205,62 @@ void Graph::MVE(string outputName, string prepOutp) {
     // Create graph
     for (int i = 0; i < n; i++)
         add_vertex(SPPRC_Graph_Vert_Prep(i, paramDelay), graphJitterMae);
-    
+
     for (int u = 1; u < n; ++u)
         if (!removed[u])
-            for (auto arc : arcs[u]) 
-                if (!removed[arc->getD()] || arc->getD() != 0) {
+            for (auto arc : arcs[u])
+                if (!removed[arc->getD()] || arc->getD() != 0)
+                {
                     add_edge(u, arc->getD(), SPPRC_Graph_Arc_Prep(countEdges++, arc->getJitter(), arc->getDelay()), graphJitterMae);
                     add_edge(u, arc->getD(), arc->getJitter(), graphJitterSP);
                 }
 
     // Run the shortest path with resource constraints
     vector<vector<graph_traits<SPPRCGraphPrep>::edge_descriptor>> opt_solutions;
-    vector<spp_spp_res_cont_prep> pareto_opt; 
+    vector<spp_spp_res_cont_prep> pareto_opt;
 
-    for (auto i : nonTerminals) {
-        if (!removed[i]) {
+    for (auto i : nonTerminals)
+    {
+        if (!removed[i])
+        {
             SPPRC_Graph_Vert_Prep &vert_prop = get(vertex_bundle, graphJitterMae)[i];
             vert_prop.con = paramDelay;
 
             r_c_shortest_paths(graphJitterMae,
-                get(&SPPRC_Graph_Vert_Prep::num, graphJitterMae),
-                get(&SPPRC_Graph_Arc_Prep::num, graphJitterMae),
-                root,
-                i,
-                opt_solutions,
-                pareto_opt,
-                spp_spp_res_cont_prep(0, 0),
-                ref_spprc_prep(),
-                dominance_spptw_prep(),
-                allocator<r_c_shortest_paths_label<SPPRCGraphPrep, spp_spp_res_cont_prep >>(),
-                default_r_c_shortest_paths_visitor());
-            
-            if (pareto_opt.empty()) {
+                               get(&SPPRC_Graph_Vert_Prep::num, graphJitterMae),
+                               get(&SPPRC_Graph_Arc_Prep::num, graphJitterMae),
+                               root,
+                               i,
+                               opt_solutions,
+                               pareto_opt,
+                               spp_spp_res_cont_prep(0, 0),
+                               ref_spprc_prep(),
+                               dominance_spptw_prep(),
+                               allocator<r_c_shortest_paths_label<SPPRCGraphPrep, spp_spp_res_cont_prep>>(),
+                               default_r_c_shortest_paths_visitor());
+
+            if (pareto_opt.empty())
+            {
                 removed[i] = true;
                 distanceCshp[i] = paramJitter + 1;
-            } else {
+            }
+            else
+            {
                 distanceCshp[i] = pareto_opt[0].cost;
                 for (j = 1; j < int(pareto_opt.size()); j++)
-                    if (pareto_opt[j].cost < distanceCshp[i]) 
+                    if (pareto_opt[j].cost < distanceCshp[i])
                         distanceCshp[i] = pareto_opt[j].cost;
             }
         }
     }
 
     // Run the shortest paths
-    for (int i = 1; i < n; i++) {
-        if (removed[i]) {
-            dijkstra_shortest_paths(graphJitterSP, i, 
-                predecessor_map(make_iterator_property_map(predecessors.begin(), get(vertex_index, graphJitterSP))).distance_map(
-                make_iterator_property_map(distanceAux.begin(), get(vertex_index, graphJitterSP))));
+    for (int i = 1; i < n; i++)
+    {
+        if (removed[i])
+        {
+            dijkstra_shortest_paths(graphJitterSP, i,
+                                    predecessor_map(make_iterator_property_map(predecessors.begin(), get(vertex_index, graphJitterSP))).distance_map(make_iterator_property_map(distanceAux.begin(), get(vertex_index, graphJitterSP))));
 
             for (j = 1; j < n; j++)
                 distanceNTtoT[i][j] = distanceAux[j];
@@ -233,35 +270,45 @@ void Graph::MVE(string outputName, string prepOutp) {
     // Procedure to decide which nodes and arcs will be removed
     bool removeNodes, removeArc;
     int numNodes = 0, numArcs = 0;
-    for (int q : nonTerminals) {
+    for (int q : nonTerminals)
+    {
         removeNodes = true;
-        for (auto k : terminals) {
-            if (distanceCshp[q] + distanceNTtoT[q][k] <= paramJitter) {
+        for (auto k : terminals)
+        {
+            if (distanceCshp[q] + distanceNTtoT[q][k] <= paramJitter)
+            {
                 removeNodes = false;
                 break;
             }
         }
-        
-        if (removeNodes) {
+
+        if (removeNodes)
+        {
             removed[q] = true;
-	    prepfile << "MVE " << q << endl;
+            prepfile << "MVE " << q << endl;
             numNodes++;
-        } else {
-            for (auto *arc : arcs[q]) {
+        }
+        else
+        {
+            for (auto *arc : arcs[q])
+            {
                 j = arc->getD();
                 removeArc = true;
-                for (auto k : terminals) {
-                    if (distanceCshp[q] + arc->getJitter() + distanceNTtoT[j][k] <= paramJitter) {
+                for (auto k : terminals)
+                {
+                    if (distanceCshp[q] + arc->getJitter() + distanceNTtoT[j][k] <= paramJitter)
+                    {
                         removeArc = false;
                         break;
                     }
                 }
 
-                if (removeArc) {
+                if (removeArc)
+                {
                     removedY[q][j] = true;
-		    prepfile << "MAE " << q << " " << j << endl;
+                    prepfile << "MAE " << q << " " << j << endl;
                     numArcs++;
-                }                
+                }
             }
         }
     }
@@ -273,29 +320,28 @@ void Graph::MVE(string outputName, string prepOutp) {
     cout << "MVE/MAE preprocessing finished!" << endl;
 }
 
-void Graph::SAE(string outputName, string prepOutp) {
+void Graph::SAE(string outputName, string prepOutp)
+{
     int i, u, j, minSP, countEdges = 0;
     vector<int> jitterFromCShp = vector<int>(n), delayFromCShp = vector<int>(n), minSPVec = vector<int>(n);
     vector<int> distanceJitter;
     vector<vector<int>> CSHP = vector<vector<int>>(n, vector<int>(n));
     BoostGraph graphJitterSP = BoostGraph(n);
     SPPRCGraphPrep graphDelay, graphJitter;
-      
-    
+
     for (i = 1; i < n; i++)
         if (!removed[i])
-            for (auto arc : arcs[i]) 
-                if (arc->getD() != 0 && !removed[arc->getD()] && !removedY[i][arc->getD()]) 
+            for (auto arc : arcs[i])
+                if (arc->getD() != 0 && !removed[arc->getD()] && !removedY[i][arc->getD()])
                     add_edge(i, arc->getD(), arc->getJitter(), graphJitterSP);
 
-    for (i = 0; i < n; i++) {
-      //if (removed[i]) continue;
+    for (i = 0; i < n; i++)
+    {
+        // if (removed[i]) continue;
 
         distanceJitter = vector<int>(n);
 
-        dijkstra_shortest_paths(graphJitterSP, i, predecessor_map(
-                make_iterator_property_map(predecessors.begin(), get(vertex_index, graphJitterSP))).distance_map(
-                make_iterator_property_map(distanceJitter.begin(), get(vertex_index, graphJitterSP))));
+        dijkstra_shortest_paths(graphJitterSP, i, predecessor_map(make_iterator_property_map(predecessors.begin(), get(vertex_index, graphJitterSP))).distance_map(make_iterator_property_map(distanceJitter.begin(), get(vertex_index, graphJitterSP))));
 
         minSP = paramJitter;
         for (auto t : terminals)
@@ -303,7 +349,8 @@ void Graph::SAE(string outputName, string prepOutp) {
                 minSP = distanceJitter[t];
         minSPVec[i] = minSP;
 
-        if (minSPVec[i] >= numeric_limits<int>::max() || distanceJitter[root] >= numeric_limits<int>::max()) {
+        if (minSPVec[i] >= numeric_limits<int>::max() || distanceJitter[root] >= numeric_limits<int>::max())
+        {
             removed[i] = true;
             minSPVec[i] = paramJitter;
         }
@@ -312,45 +359,52 @@ void Graph::SAE(string outputName, string prepOutp) {
         add_vertex(SPPRC_Graph_Vert_Prep(i, paramDelay), graphJitter);
     }
 
-    for (u = 1; u < n; ++u) {
-        if (!removed[u]) {
-            for (auto arc : arcs[u]) {
+    for (u = 1; u < n; ++u)
+    {
+        if (!removed[u])
+        {
+            for (auto arc : arcs[u])
+            {
                 j = arc->getD();
-	        if (j != 0) {
+                if (j != 0)
+                {
                     add_edge(u, j, SPPRC_Graph_Arc_Prep(countEdges, arc->getDelay(), arc->getJitter()), graphDelay);
-                    add_edge(u, j, SPPRC_Graph_Arc_Prep(countEdges++, arc->getJitter(), arc->getDelay()), graphJitter);  
-	        }
+                    add_edge(u, j, SPPRC_Graph_Arc_Prep(countEdges++, arc->getJitter(), arc->getDelay()), graphJitter);
+                }
             }
         }
-    } 
+    }
 
     // Calculation of Constrained Shortests Paths
     vector<vector<graph_traits<SPPRCGraphPrep>::edge_descriptor>> opt_solutions;
     vector<spp_spp_res_cont_prep> pareto_opt;
     // CSP root -> S (NonTerminals)
-    for (auto j : nonTerminals) {
+    for (auto j : nonTerminals)
+    {
         // CSHP delay
-        if (!removed[j]) {
+        if (!removed[j])
+        {
             SPPRC_Graph_Vert_Prep &vert_prop = get(vertex_bundle, graphDelay)[j];
             vert_prop.con = paramJitter - minSPVec[j];
 
             r_c_shortest_paths(graphDelay,
-                     get(&SPPRC_Graph_Vert_Prep::num, graphDelay),
-                     get(&SPPRC_Graph_Arc_Prep::num, graphDelay),
-                     root,
-                     j,
-                     opt_solutions,
-                     pareto_opt,
-                     spp_spp_res_cont_prep(0, 0),
-                     ref_spprc_prep(),
-                     dominance_spptw_prep(),
-                     allocator<r_c_shortest_paths_label<SPPRCGraphPrep, spp_spp_res_cont_prep >>(),
-                     default_r_c_shortest_paths_visitor());
-            if (pareto_opt.empty()) 
+                               get(&SPPRC_Graph_Vert_Prep::num, graphDelay),
+                               get(&SPPRC_Graph_Arc_Prep::num, graphDelay),
+                               root,
+                               j,
+                               opt_solutions,
+                               pareto_opt,
+                               spp_spp_res_cont_prep(0, 0),
+                               ref_spprc_prep(),
+                               dominance_spptw_prep(),
+                               allocator<r_c_shortest_paths_label<SPPRCGraphPrep, spp_spp_res_cont_prep>>(),
+                               default_r_c_shortest_paths_visitor());
+            if (pareto_opt.empty())
                 delayFromCShp[j] = paramDelay;
-            else {
+            else
+            {
                 minSP = pareto_opt[0].cost;
-                for (auto p : pareto_opt) 
+                for (auto p : pareto_opt)
                     if (p.cost < minSP)
                         minSP = p.cost;
                 delayFromCShp[j] = minSP;
@@ -362,80 +416,85 @@ void Graph::SAE(string outputName, string prepOutp) {
 
             // CSHP jitter
             r_c_shortest_paths(graphJitter,
-                     get(&SPPRC_Graph_Vert_Prep::num, graphJitter),
-                     get(&SPPRC_Graph_Arc_Prep::num, graphJitter),
-                     root,
-                     j,
-                     opt_solutions,
-                     pareto_opt,
-                     spp_spp_res_cont_prep(0, 0),
-                     ref_spprc_prep(),
-                     dominance_spptw_prep(),
-                     allocator<r_c_shortest_paths_label<SPPRCGraphPrep, spp_spp_res_cont_prep >>(),
-                     default_r_c_shortest_paths_visitor());
-            
-            if (pareto_opt.empty()) 
+                               get(&SPPRC_Graph_Vert_Prep::num, graphJitter),
+                               get(&SPPRC_Graph_Arc_Prep::num, graphJitter),
+                               root,
+                               j,
+                               opt_solutions,
+                               pareto_opt,
+                               spp_spp_res_cont_prep(0, 0),
+                               ref_spprc_prep(),
+                               dominance_spptw_prep(),
+                               allocator<r_c_shortest_paths_label<SPPRCGraphPrep, spp_spp_res_cont_prep>>(),
+                               default_r_c_shortest_paths_visitor());
+
+            if (pareto_opt.empty())
                 jitterFromCShp[j] = paramJitter;
-            else {
+            else
+            {
                 minSP = pareto_opt[0].cost;
-                for (auto p : pareto_opt) 
+                for (auto p : pareto_opt)
                     if (p.cost < minSP)
                         minSP = p.cost;
                 jitterFromCShp[j] = minSP;
-            }          
+            }
         }
     }
 
     // CSHP root -> j (terminals)
-    for (auto j : terminals) {
-        if (!removed[j]) {
+    for (auto j : terminals)
+    {
+        if (!removed[j])
+        {
             SPPRC_Graph_Vert_Prep &vert_prop = get(vertex_bundle, graphDelay)[j];
             vert_prop.con = paramJitter;
-    
+
             r_c_shortest_paths(graphDelay,
-                     get(&SPPRC_Graph_Vert_Prep::num, graphDelay),
-                     get(&SPPRC_Graph_Arc_Prep::num, graphDelay),
-                     root,
-                     j,
-                     opt_solutions,
-                     pareto_opt,
-                     spp_spp_res_cont_prep(0, 0),
-                     ref_spprc_prep(),
-                     dominance_spptw_prep(),
-                     allocator<r_c_shortest_paths_label<SPPRCGraphPrep, spp_spp_res_cont_prep >>(),
-                     default_r_c_shortest_paths_visitor());
-	    
-            if (pareto_opt.empty()) 
+                               get(&SPPRC_Graph_Vert_Prep::num, graphDelay),
+                               get(&SPPRC_Graph_Arc_Prep::num, graphDelay),
+                               root,
+                               j,
+                               opt_solutions,
+                               pareto_opt,
+                               spp_spp_res_cont_prep(0, 0),
+                               ref_spprc_prep(),
+                               dominance_spptw_prep(),
+                               allocator<r_c_shortest_paths_label<SPPRCGraphPrep, spp_spp_res_cont_prep>>(),
+                               default_r_c_shortest_paths_visitor());
+
+            if (pareto_opt.empty())
                 delayFromCShp[j] = paramDelay;
-            else {
+            else
+            {
                 minSP = pareto_opt[0].cost;
-                for (auto p : pareto_opt) 
+                for (auto p : pareto_opt)
                     if (p.cost < minSP)
                         minSP = p.cost;
                 delayFromCShp[j] = minSP;
             }
-    
+
             SPPRC_Graph_Vert_Prep &vert_prop_d = get(vertex_bundle, graphJitter)[j];
             vert_prop_d.con = paramDelay;
             // CSHP jitter
             r_c_shortest_paths(graphJitter,
-                     get(&SPPRC_Graph_Vert_Prep::num, graphJitter),
-                     get(&SPPRC_Graph_Arc_Prep::num, graphJitter),
-                     root,
-                     j,
-                     opt_solutions,
-                     pareto_opt,
-                     spp_spp_res_cont_prep(0, 0),
-                     ref_spprc_prep(),
-                     dominance_spptw_prep(),
-                     allocator<r_c_shortest_paths_label<SPPRCGraphPrep, spp_spp_res_cont_prep >>(),
-                     default_r_c_shortest_paths_visitor());
-            
-            if (pareto_opt.empty()) 
+                               get(&SPPRC_Graph_Vert_Prep::num, graphJitter),
+                               get(&SPPRC_Graph_Arc_Prep::num, graphJitter),
+                               root,
+                               j,
+                               opt_solutions,
+                               pareto_opt,
+                               spp_spp_res_cont_prep(0, 0),
+                               ref_spprc_prep(),
+                               dominance_spptw_prep(),
+                               allocator<r_c_shortest_paths_label<SPPRCGraphPrep, spp_spp_res_cont_prep>>(),
+                               default_r_c_shortest_paths_visitor());
+
+            if (pareto_opt.empty())
                 jitterFromCShp[j] = paramJitter;
-            else {
+            else
+            {
                 minSP = pareto_opt[0].cost;
-                for (auto p : pareto_opt) 
+                for (auto p : pareto_opt)
                     if (p.cost < minSP)
                         minSP = p.cost;
                 jitterFromCShp[j] = minSP;
@@ -443,31 +502,36 @@ void Graph::SAE(string outputName, string prepOutp) {
         }
     }
 
-    // CSHP: K -> J (NonTerminals) 
-    for (auto j : DuS) {
-        if (!removed[j]) {
+    // CSHP: K -> J (NonTerminals)
+    for (auto j : DuS)
+    {
+        if (!removed[j])
+        {
             SPPRC_Graph_Vert_Prep &vert_prop = get(vertex_bundle, graphDelay)[j];
             vert_prop.con = paramJitter - jitterFromCShp[j];
 
-            for (auto k : terminals) {
-                if (!removed[k] && k != j) {
+            for (auto k : terminals)
+            {
+                if (!removed[k] && k != j)
+                {
                     r_c_shortest_paths(graphDelay,
-                            get(&SPPRC_Graph_Vert_Prep::num, graphDelay),
-                            get(&SPPRC_Graph_Arc_Prep::num, graphDelay),
-                            k,
-                            j,
-                            opt_solutions,
-                            pareto_opt,
-                            spp_spp_res_cont_prep(0, 0),
-                            ref_spprc_prep(),
-                            dominance_spptw_prep(),
-                            allocator<r_c_shortest_paths_label<SPPRCGraphPrep, spp_spp_res_cont_prep >>(),
-                            default_r_c_shortest_paths_visitor());
-                    if (pareto_opt.empty()) 
+                                       get(&SPPRC_Graph_Vert_Prep::num, graphDelay),
+                                       get(&SPPRC_Graph_Arc_Prep::num, graphDelay),
+                                       k,
+                                       j,
+                                       opt_solutions,
+                                       pareto_opt,
+                                       spp_spp_res_cont_prep(0, 0),
+                                       ref_spprc_prep(),
+                                       dominance_spptw_prep(),
+                                       allocator<r_c_shortest_paths_label<SPPRCGraphPrep, spp_spp_res_cont_prep>>(),
+                                       default_r_c_shortest_paths_visitor());
+                    if (pareto_opt.empty())
                         CSHP[k][j] = paramDelay;
-                    else {
+                    else
+                    {
                         minSP = pareto_opt[0].cost;
-                        for (auto p : pareto_opt) 
+                        for (auto p : pareto_opt)
                             if (p.cost < minSP)
                                 minSP = p.cost;
                         CSHP[k][j] = minSP;
@@ -483,15 +547,18 @@ void Graph::SAE(string outputName, string prepOutp) {
     prepfile.open(prepOutp, ofstream::app);
 
     int cntRem = 0;
-    for (auto i : DuS) {
-        for (auto arc : arcs[i]) {
+    for (auto i : DuS)
+    {
+        for (auto arc : arcs[i])
+        {
             j = arc->getD();
             for (auto k : terminals)
                 if (k != j && k != i)
-                    if (delayFromCShp[i] + arc->getDelay() + CSHP[k][j] > paramDelay) {
+                    if (delayFromCShp[i] + arc->getDelay() + CSHP[k][j] > paramDelay)
+                    {
                         cntRem++;
                         removedF[i][j][k] = true;
-			prepfile << "SAE " << i << " " << j << " " << k << endl;
+                        prepfile << "SAE " << i << " " << j << " " << k << endl;
                     }
         }
     }
@@ -502,54 +569,61 @@ void Graph::SAE(string outputName, string prepOutp) {
     prepfile.close();
 }
 
-void Graph::finishPreprocessing(string outputName, bool mve, bool sae) {
+void Graph::finishPreprocessing(string outputName, bool mve, bool sae)
+{
     // The vertex 0 doesnt count to big M calculation
     int cntRemAll = 0, cntRemTerm = 0, cntRemArcs = 0;
     int i, j;
     vector<BoostGraph> preprocessingGraphs = vector<BoostGraph>(n);
-    
+
     ofstream output;
     output.open(outputName, ofstream::app);
-    
-    if (sae) {
+
+    if (sae)
+    {
         for (auto i : terminals)
             preprocessingGraphs[i] = BoostGraph(n);
 
         for (auto k : terminals)
             for (int i = 1; i < n; i++)
-                for (auto arc : arcs[i]) 
+                for (auto arc : arcs[i])
                     if (!removedF[i][arc->getD()][k])
                         add_edge(i, arc->getD(), 1, preprocessingGraphs[k]);
-           
+
         vector<VertexDescriptor> predecessors;
         vector<int> distancePrep;
 
-        for (auto k : terminals) {
+        for (auto k : terminals)
+        {
             noPath[k] = false;
             property_map<BoostGraph, edge_weight_t>::type weightMapDelay = get(edge_weight, preprocessingGraphs[k]);
             predecessors = vector<VertexDescriptor>(n);
             distancePrep = vector<int>(n);
 
-            dijkstra_shortest_paths(preprocessingGraphs[k], root, predecessor_map(
-                make_iterator_property_map(predecessors.begin(), get(vertex_index, preprocessingGraphs[k]))).distance_map(
-                make_iterator_property_map(distancePrep.begin(), get(vertex_index, preprocessingGraphs[k]))));
+            dijkstra_shortest_paths(preprocessingGraphs[k], root, predecessor_map(make_iterator_property_map(predecessors.begin(), get(vertex_index, preprocessingGraphs[k]))).distance_map(make_iterator_property_map(distancePrep.begin(), get(vertex_index, preprocessingGraphs[k]))));
 
-            if (distancePrep[k] >= numeric_limits<int>::max()) {
+            if (distancePrep[k] >= numeric_limits<int>::max())
+            {
                 noPath[k] = true;
                 cntRemTerm++;
             }
         }
     }
 
-    if (mve || sae) {
-        for (int j = 1; j < n; j++) {
-            if (removed[j] || noPath[j]) {
+    if (mve || sae)
+    {
+        for (int j = 1; j < n; j++)
+        {
+            if (removed[j] || noPath[j])
+            {
                 cntRemArcs += arcs[j].size(), cntRemAll++;
                 arcs[j].erase(arcs[j].begin(), arcs[j].end());
             }
-            
-            for (int i = 0; i < int(arcs[j].size()); i++) {
-                if (removed[arcs[j][i]->getD()] || noPath[arcs[j][i]->getD()] || removedY[j][arcs[j][i]->getD()]) {
+
+            for (int i = 0; i < int(arcs[j].size()); i++)
+            {
+                if (removed[arcs[j][i]->getD()] || noPath[arcs[j][i]->getD()] || removedY[j][arcs[j][i]->getD()])
+                {
                     arcs[j].erase(arcs[j].begin() + i--);
                     cntRemArcs++;
                 }
@@ -557,7 +631,7 @@ void Graph::finishPreprocessing(string outputName, bool mve, bool sae) {
         }
     }
 
-    bigMDelay = paramDelay+1, bigMJitter = paramJitter+1;
+    bigMDelay = paramDelay + 1, bigMJitter = paramJitter + 1;
     // for (int i = 0; i < n - (cntRemAll+2); i++)
     //   bigMDelay += delayVector[i], bigMJitter += jitterVector[i];
 
@@ -568,63 +642,77 @@ void Graph::finishPreprocessing(string outputName, bool mve, bool sae) {
 
     arcs[root].push_back(new Arc(root, 0, paramDelay, paramJitter, 0, 0));
     costs[root][0] = costs[0][root] = make_pair(paramDelay, paramJitter);
-    for (auto dus : DuS) {
-      costs[0][dus] = costs[dus][0] = make_pair(1, 1);
-      arcs[0].push_back(new Arc(0, dus, 1, 1, 0, 0)); 
+    for (auto dus : DuS)
+    {
+        costs[0][dus] = costs[dus][0] = make_pair(1, 1);
+        arcs[0].push_back(new Arc(0, dus, 1, 1, 0, 0));
     }
     cout << "Finishing preprocessing" << endl;
 }
 
-// Driver function to sort the vector elements 
-// by second element of pairs 
-bool sortbysec(const pair<int,int> &a, const pair<int,int> &b) { 
-    return (a.second > b.second); 
-} 
+// Driver function to sort the vector elements
+// by second element of pairs
+bool sortbysec(const pair<int, int> &a, const pair<int, int> &b)
+{
+    return (a.second > b.second);
+}
 
-void Graph::orderingPaths(bool useDelay) {
+void Graph::orderingPaths(bool useDelay)
+{
     cout << "Ordering Paths" << endl;
     int i, j, l, minValue, minIndex, countEdges = 0;
     pathValues = vector<pair<int, int>>();
     SPPRCGraphPrep graphOrd;
 
     for (i = 0; i < n; i++)
-      if (useDelay) add_vertex(SPPRC_Graph_Vert_Prep(i, bigMJitter), graphOrd);
-      else add_vertex(SPPRC_Graph_Vert_Prep(i, bigMDelay), graphOrd);
+        if (useDelay)
+            add_vertex(SPPRC_Graph_Vert_Prep(i, bigMJitter), graphOrd);
+        else
+            add_vertex(SPPRC_Graph_Vert_Prep(i, bigMDelay), graphOrd);
 
-    for (i = 0; i < n; i++) 
-      for (auto arc : arcs[i]) {
-	if (useDelay) add_edge(i, arc->getD(), SPPRC_Graph_Arc_Prep(countEdges++, arc->getDelay(), arc->getJitter()), graphOrd);
-	else add_edge(i, arc->getD(), SPPRC_Graph_Arc_Prep(countEdges++, arc->getJitter(), arc->getDelay()), graphOrd);
-      }
+    for (i = 0; i < n; i++)
+        for (auto arc : arcs[i])
+        {
+            if (useDelay)
+                add_edge(i, arc->getD(), SPPRC_Graph_Arc_Prep(countEdges++, arc->getDelay(), arc->getJitter()), graphOrd);
+            else
+                add_edge(i, arc->getD(), SPPRC_Graph_Arc_Prep(countEdges++, arc->getJitter(), arc->getDelay()), graphOrd);
+        }
 
     // Calculation of Constrained Shortests Paths
     vector<vector<graph_traits<SPPRCGraphPrep>::edge_descriptor>> opt_solutions;
     vector<spp_spp_res_cont_prep> pareto_opt;
 
-    for (auto k : terminals) {
+    for (auto k : terminals)
+    {
         SPPRC_Graph_Vert_Prep &vert_prop = get(vertex_bundle, graphOrd)[k];
-	if (useDelay) vert_prop.con = bigMJitter;
-	else vert_prop.con = bigMDelay;
+        if (useDelay)
+            vert_prop.con = bigMJitter;
+        else
+            vert_prop.con = bigMDelay;
 
         r_c_shortest_paths(graphOrd,
-                 get(&SPPRC_Graph_Vert_Prep::num, graphOrd),
-                 get(&SPPRC_Graph_Arc_Prep::num, graphOrd),
-                 root,
-                 k,
-                 opt_solutions,
-                 pareto_opt,
-                 spp_spp_res_cont_prep(0, 0),
-                 ref_spprc_prep(),
-                 dominance_spptw_prep(),
-                 allocator<r_c_shortest_paths_label<SPPRCGraphPrep, spp_spp_res_cont_prep >>(),
-                 default_r_c_shortest_paths_visitor());
+                           get(&SPPRC_Graph_Vert_Prep::num, graphOrd),
+                           get(&SPPRC_Graph_Arc_Prep::num, graphOrd),
+                           root,
+                           k,
+                           opt_solutions,
+                           pareto_opt,
+                           spp_spp_res_cont_prep(0, 0),
+                           ref_spprc_prep(),
+                           dominance_spptw_prep(),
+                           allocator<r_c_shortest_paths_label<SPPRCGraphPrep, spp_spp_res_cont_prep>>(),
+                           default_r_c_shortest_paths_visitor());
 
-        if (pareto_opt.empty()) {
+        if (pareto_opt.empty())
+        {
             cout << "Something is wrong!" << endl;
-	    exit(0);
-        } else {
+            exit(0);
+        }
+        else
+        {
             minValue = pareto_opt[0].cost, minIndex = 0;
-            for (i = 1; i < pareto_opt.size(); i++) 
+            for (i = 1; i < pareto_opt.size(); i++)
                 if (pareto_opt[i].cost < minValue)
                     minValue = pareto_opt[i].cost, minIndex = i;
 
@@ -634,110 +722,132 @@ void Graph::orderingPaths(bool useDelay) {
     sort(pathValues.begin(), pathValues.end(), sortbysec);
 }
 
-void Graph::showGraph() {
+void Graph::showGraph()
+{
     cout << "Arcs" << endl;
-    for (int o = 23; o < 26; o++) {
-        if (true) {
+    for (int o = 23; o < 26; o++)
+    {
+        if (true)
+        {
             for (auto *arc : arcs[o])
                 cout << arc->getO() << " " << arc->getD() << ": " << arc->getDelay()
-                     << " " << arc->getJitter() << " " << arc->getBandwidth() << " " <<
-                     arc->getEstimateLinkDuration() << endl;
+                     << " " << arc->getJitter() << " " << arc->getBandwidth() << " " << arc->getEstimateLinkDuration() << endl;
         }
     }
 
     cout << "\n Param" << endl;
-    cout << "Nodes: " << n << " Edges: " << m <<
-         " CntTerminals: " << int(terminals.size()) << " Root: " << root << endl;
+    cout << "Nodes: " << n << " Edges: " << m << " CntTerminals: " << int(terminals.size()) << " Root: " << root << endl;
 
-    cout << "Delay: " << paramDelay << " Jitter: " << paramJitter <<
-         " DelayVari.: " << paramVariation << " Bandwidth: " << paramBandwidth << endl;
+    cout << "Delay: " << paramDelay << " Jitter: " << paramJitter << " DelayVari.: " << paramVariation << " Bandwidth: " << paramBandwidth << endl;
 
     cout << "Terminals" << endl;
-    for (int i : terminals) {
-        cout << "T: " << i+1 << " ";
+    for (int i : terminals)
+    {
+        cout << "T: " << i + 1 << " ";
     }
     cout << "\nNonTerminals" << endl;
-    for (int i : nonTerminals) {
-        cout << "NT: " << i+1 << " ";
+    for (int i : nonTerminals)
+    {
+        cout << "NT: " << i + 1 << " ";
     }
 }
 
-int Graph::getBigMDelay() {
+int Graph::getBigMDelay()
+{
     return bigMDelay;
 }
 
-int Graph::getBigMJitter() {
+int Graph::getBigMJitter()
+{
     return bigMJitter;
 }
 
-int Graph::getShpTerminal(int k) {
+int Graph::getShpTerminal(int k)
+{
     return distance[k];
 }
 
-int Graph::getN() const {
+int Graph::getN() const
+{
     return n;
 }
 
-void Graph::setN(int n) {
+void Graph::setN(int n)
+{
     Graph::n = n;
 }
 
-int Graph::getM() const {
+int Graph::getM() const
+{
     return m;
 }
 
-void Graph::setM(int m) {
+void Graph::setM(int m)
+{
     Graph::m = m;
 }
 
-int Graph::getParamDelay() const {
+int Graph::getParamDelay() const
+{
     return paramDelay;
 }
 
-void Graph::setParamDelay(int paramDelay) {
+void Graph::setParamDelay(int paramDelay)
+{
     Graph::paramDelay = paramDelay;
 }
 
-int Graph::getParamJitter() const {
+int Graph::getParamJitter() const
+{
     return paramJitter;
 }
 
-void Graph::setParamJitter(int paramJitter) {
+void Graph::setParamJitter(int paramJitter)
+{
     Graph::paramJitter = paramJitter;
 }
 
-int Graph::getParamVariation() const {
+int Graph::getParamVariation() const
+{
     return paramVariation;
 }
 
-int Graph::getNAfterRemoved() {
+int Graph::getNAfterRemoved()
+{
     return cntRemoved;
 }
 
-void Graph::setParamVariation(int paramVariation) {
+void Graph::setParamVariation(int paramVariation)
+{
     Graph::paramVariation = paramVariation;
 }
 
-int Graph::getParamBandwidth() const {
+int Graph::getParamBandwidth() const
+{
     return paramBandwidth;
 }
 
-void Graph::setParamBandwidth(int paramBandwidth) {
+void Graph::setParamBandwidth(int paramBandwidth)
+{
     Graph::paramBandwidth = paramBandwidth;
 }
 
-int Graph::getRoot() const {
+int Graph::getRoot() const
+{
     return root;
 }
 
-void Graph::setRoot(int root) {
+void Graph::setRoot(int root)
+{
     Graph::root = root;
 }
 
-int Graph::getDelay(int i, int j) {
-  return costs[i][j].first;
+int Graph::getDelay(int i, int j)
+{
+    return costs[i][j].first;
 }
 
-int Graph::getJitter(int i, int j) {
-  return costs[i][j].second;
+int Graph::getJitter(int i, int j)
+{
+    return costs[i][j].second;
 }

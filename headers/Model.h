@@ -18,7 +18,8 @@
 
 using namespace std;
 
-class Model {
+class Model
+{
 
 public:
   Graph *graph;
@@ -26,6 +27,7 @@ public:
   GRBModel model = GRBModel(env);
   vector<vector<GRBVar>> y;
   vector<GRBVar> z, lambda, xi;
+  GRBVar delta_min;
 
   void objectiveFunction();
 
@@ -50,5 +52,4 @@ public:
   void writeSolution(string instance, int preprocessingTime);
 };
 
-
-#endif //MRP_MODEL_H
+#endif // MRP_MODEL_H
